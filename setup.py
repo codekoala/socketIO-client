@@ -2,6 +2,8 @@ import os
 
 from setuptools import setup, find_packages
 
+import socketIO
+
 
 here = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(here, 'README.rst')).read()
@@ -10,9 +12,9 @@ CHANGES = open(os.path.join(here, 'CHANGES.rst')).read()
 
 setup(
     name='socketIO-client',
-    version='0.1.1',
+    version=socketIO.__version__,
     description='Barebones socket.io client library',
-    long_description=README + '\n\n' +  CHANGES,
+    long_description='\n\n'.join([README, CHANGES]),
     license='MIT',
     classifiers=[
         'Intended Audience :: Developers',

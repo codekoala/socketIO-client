@@ -9,6 +9,9 @@ from urllib import urlopen
 from websocket import create_connection
 
 
+__version__ = '0.1.2'
+
+
 class SocketIO(object):
 
     def __init__(self, host, port):
