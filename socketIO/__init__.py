@@ -1,12 +1,37 @@
 from anyjson import dumps
+from collections import defaultdict
 from functools import partial
 from threading import Thread, Event
 from urllib import urlopen
 from websocket import create_connection
 import atexit
+import time
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 
+
+class MessageHandler(Thread):
+
+    def __init__(self, socket, *args, **kwargs):
+        super(MessageHandler, self).__init__(*args, **kwargs)
+
+        self.socket = socket
+        self.listeners = defaultdict(set)
+        self.event = Event()
+
+    def cancel(self):
+        self.event.set()
+
+    def run(self):
+        while not self.event.is_set():
+            data = self.socket.recv()
+            msg_type, msg_id, endpoint = data.split(':', 3)
+            if int(msg_type) != 2:
+                print data
+            time.sleep(0.1)
+
+    def on(self, event, callback):
+        self.listeners[event].add(callback)
 
 class SocketIO(object):
 
@@ -30,6 +55,9 @@ class SocketIO(object):
         hb_interval = self.heartbeatTimeout - 2
         self.heartbeat = RhythmicThread(hb_interval, self.send_heartbeat)
         self.heartbeat.start()
+
+        self.listener = MessageHandler(self.connection)
+        self.listener.start()
 
         self.create_dynamic_message_handlers()
 
@@ -69,6 +97,9 @@ class SocketIO(object):
             self.send_disconnect()
         except AttributeError:
             pass
+
+    def on(self, event, callback):
+        self.listener.on(event, callback)
 
     def __send(self, msg_type, msg_id=None, endpoint=None, **kwargs):
         """
@@ -155,8 +186,10 @@ class SocketIO(object):
             return
 
         self.heartbeat.cancel()
+        self.listener.cancel()
         self.__send(0, **kwargs)
         self.heartbeat.join(20)
+        self.listener.join(20)
         self.connection.close()
 
     def send_heartbeat(self):
