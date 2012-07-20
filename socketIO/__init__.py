@@ -1,4 +1,5 @@
 from anyjson import dumps
+from functools import partial
 from threading import Thread, Event
 from urllib import urlopen
 from websocket import create_connection
@@ -8,11 +9,13 @@ __version__ = '0.1.3'
 
 class SocketIO(object):
 
-    def __init__(self, host, port, namespace=None, version=1):
+    def __init__(self, host, port, namespace=None, version=1,
+                 default_endpoint=None):
         self.host = host
         self.port = int(port)
         self.namespace = namespace or 'socket.io'
         self.version = version or 1
+        self.default_endpoint = default_endpoint or ''
 
         self.url_params = [
             self.host, self.port,
@@ -24,6 +27,8 @@ class SocketIO(object):
 
         self.heartbeatThread = RhythmicThread(self.heartbeatTimeout - 2, self.__send_heartbeat)
         self.heartbeatThread.start()
+
+        self.create_dynamic_message_handlers()
 
     def __do_handshake(self):
         try:
@@ -85,16 +90,51 @@ class SocketIO(object):
         msg = ':'.join(map(str, [
             msg_type,
             msg_id or '',
-            endpoint or '',
+            endpoint or self.default_endpoint,
             data_str
         ]))
 
         return self.connection.send(msg)
 
-    def emit(self, eventName, eventData, **kwargs):
-        """Send an ``event`` message over the socket."""
+    def create_dynamic_message_handlers(self):
+        """
+        Attempt to dynamically generate methods for each message type.
 
-        return self.__send(5, name=eventName, args=eventData, **kwargs)
+        Tries to grab the supported message types from ``gevent-socketio``.  If
+        it succeeds, a new ``send_*`` method should be created for each message
+        type.  If ``gevent-socketio`` is not installed, the dynamic methods
+        will not be created.
+
+        For example, if a message type named ``foo`` is supported by
+        ``gevent-socketio``, the current ``SocketIO`` instance will have a new
+        method called ``send_foo``.
+
+        """
+
+        try:
+            from socketio.packet import MSG_TYPES
+        except ImportError:
+            # TODO: require gevent-socketio?
+            return
+
+        for name, msg_type in MSG_TYPES.items():
+            method_name = 'send_%s' % (name.lower(),)
+            if hasattr(self, method_name):
+                # don't create the method if it is already defined
+                continue
+
+            f = partial(self.__send, msg_type=msg_type)
+            setattr(self, method_name, f)
+
+    def emit(self, eventName, eventData, **kwargs):
+        """Compatibility wrapper around send_event."""
+
+        return self.send_event(eventName, eventData, **kwargs)
+
+    def send_event(self, name, args, **kwargs):
+        """Send an event message over the socket."""
+
+        return self.__send(5, name=name, args=args, **kwargs)
 
 
 class SocketIOError(Exception):

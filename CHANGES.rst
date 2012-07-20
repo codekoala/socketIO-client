@@ -3,6 +3,8 @@
 
 - ``SocketIO.emit`` now accepts an ``endpoint`` and ``msg_id`` parameter
 - Made the message sending a bit more generic
+- SocketIO instances will have dynamic methods based on which message types are
+  accepted (if ``gevent-socketio`` is installed)
 
 0.1.2
 -----
