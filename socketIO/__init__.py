@@ -25,8 +25,9 @@ class SocketIO(object):
         self.__do_handshake()
         self.__connect()
 
-        self.heartbeatThread = RhythmicThread(self.heartbeatTimeout - 2, self.__send_heartbeat)
-        self.heartbeatThread.start()
+        hb_interval = self.heartbeatTimeout - 2
+        self.heartbeat = RhythmicThread(hb_interval, self.send_heartbeat)
+        self.heartbeat.start()
 
         self.create_dynamic_message_handlers()
 
@@ -53,13 +54,9 @@ class SocketIO(object):
 
     def __del__(self):
         try:
-            self.heartbeatThread.cancel()
-            self.connection.close()
+            self.send_disconnect()
         except AttributeError:
             pass
-
-    def __send_heartbeat(self):
-        return self.__send(2)
 
     def __send(self, msg_type, msg_id=None, endpoint=None, **kwargs):
         """
@@ -85,12 +82,18 @@ class SocketIO(object):
         * ``endpoint``: The endpoint to receive the message.  Default: `None`
         """
 
-        data_str = dumps(kwargs)
+        if kwargs:
+            data_str = dumps(kwargs)
+        else:
+            data_str = ''
+
+        if endpoint is None:
+            endpoint = self.default_endpoint
 
         msg = ':'.join(map(str, [
             msg_type,
             msg_id or '',
-            endpoint or self.default_endpoint,
+            endpoint,
             data_str
         ]))
 
@@ -130,6 +133,14 @@ class SocketIO(object):
         """Compatibility wrapper around send_event."""
 
         return self.send_event(eventName, eventData, **kwargs)
+
+    def send_disconnect(self, **kwargs):
+        self.heartbeat.cancel()
+        self.__send(0, **kwargs)
+        self.connection.close()
+
+    def send_heartbeat(self):
+        return self.__send(2)
 
     def send_event(self, name, args, **kwargs):
         """Send an event message over the socket."""
