@@ -1,3 +1,9 @@
+0.1.3
+-----
+
+- ``SocketIO.emit`` now accepts an ``endpoint`` and ``msg_id`` parameter
+- Made the message sending a bit more generic
+
 0.1.2
 -----
 
