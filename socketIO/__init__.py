@@ -25,7 +25,8 @@ class MessageHandler(Thread):
     def run(self):
         while not self.event.is_set():
             data = self.socket.recv()
-            msg_type, msg_id, endpoint = data.split(':', 3)
+            bits = data.split(':', 3)
+            msg_type, msg_id, endpoint = bits[:3]
             if int(msg_type) != 2:
                 print data
             time.sleep(0.1)
@@ -140,6 +141,9 @@ class SocketIO(object):
             data_str
         ]))
 
+        if msg_type != 2:
+            print msg
+
         return self.connection.send(msg)
 
     def create_dynamic_message_handlers(self):
@@ -191,6 +195,7 @@ class SocketIO(object):
         self.heartbeat.join(20)
         self.listener.join(20)
         self.connection.close()
+        self.__connected = False
 
     def send_heartbeat(self):
         return self.__send(2)
