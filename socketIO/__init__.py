@@ -3,6 +3,7 @@ from functools import partial
 from threading import Thread, Event
 from urllib import urlopen
 from websocket import create_connection
+import atexit
 
 __version__ = '0.1.3'
 
@@ -16,6 +17,7 @@ class SocketIO(object):
         self.namespace = namespace or 'socket.io'
         self.version = version or 1
         self.default_endpoint = default_endpoint or ''
+        self.__connected = False
 
         self.url_params = [
             self.host, self.port,
@@ -30,6 +32,12 @@ class SocketIO(object):
         self.heartbeat.start()
 
         self.create_dynamic_message_handlers()
+
+    @property
+    def connected(self):
+        """Read-only property to determine if the socket is connected."""
+
+        return self.__connected
 
     def __do_handshake(self):
         try:
@@ -51,6 +59,10 @@ class SocketIO(object):
         ws_params = self.url_params + [self.sessionID]
         url = 'ws://%s:%d/%s/%d/websocket/%s' % tuple(ws_params)
         self.connection = create_connection(url)
+        self.__connected = True
+
+        # the __del__ method would be preferable.. if it worked...
+        atexit.register(self.send_disconnect)
 
     def __del__(self):
         try:
@@ -135,8 +147,16 @@ class SocketIO(object):
         return self.send_event(eventName, eventData, **kwargs)
 
     def send_disconnect(self, **kwargs):
+        """Disconnect and close connections a bit more gracefully."""
+
+        # check to see if, by some stroke of luck, the __del__ method worked
+        # for this instance
+        if not self.connected:
+            return
+
         self.heartbeat.cancel()
         self.__send(0, **kwargs)
+        self.heartbeat.join(20)
         self.connection.close()
 
     def send_heartbeat(self):
