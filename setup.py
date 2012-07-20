@@ -26,6 +26,7 @@ setup(
     author_email='starsareblueandfaraway@gmail.com',
     url='https://github.com/invisibleroads/socketIO-client',
     install_requires=[
+        'anyjson',
         'websocket-client',
     ],
     packages=find_packages(),

@@ -1,9 +1,4 @@
-try:
-    # for newer versions of Python
-    from json import dumps
-except ImportError:
-    from simplejson import dumps
-
+from anyjson import dumps
 from threading import Thread, Event
 from urllib import urlopen
 from websocket import create_connection
