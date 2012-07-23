@@ -78,7 +78,7 @@ class SocketIO(object):
     def on(self, event, callback):
         """Pass the event callback thru to the thread"""
 
-        self.listener.on(event, callback)
+        return self.listener.on(event, callback)
 
     def __send(self, msg_type, msg_id=None, endpoint=None, **kwargs):
         """
@@ -240,7 +240,7 @@ class MessageHandler(Thread):
             # handle event messages
             if int(msg_type) == 5:
                 data = loads(bits[3])
-                handlers = self.listeners.get(data['name'])
+                handlers = self.listeners.get(data['name'], [])
                 for handler in handlers:
                     handler(*data['args'])
 
