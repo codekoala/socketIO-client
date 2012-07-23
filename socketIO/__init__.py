@@ -29,7 +29,7 @@ class MessageHandler(Thread):
             msg_type, msg_id, endpoint = bits[:3]
             if int(msg_type) != 2:
                 print data
-            time.sleep(0.1)
+            time.sleep(1)
 
     def on(self, event, callback):
         self.listeners[event].add(callback)
@@ -138,7 +138,7 @@ class SocketIO(object):
             msg_type,
             msg_id or '',
             endpoint,
-            data_str
+            unicode(data_str).encode("utf-8")
         ]))
 
         if msg_type != 2:
@@ -176,10 +176,10 @@ class SocketIO(object):
             f = partial(self.__send, msg_type=msg_type)
             setattr(self, method_name, f)
 
-    def emit(self, eventName, eventData, **kwargs):
+    def emit(self, eventName, *eventData, **kwargs):
         """Compatibility wrapper around send_event."""
 
-        return self.send_event(eventName, eventData, **kwargs)
+        return self.send_event(eventName, *eventData, **kwargs)
 
     def send_disconnect(self, **kwargs):
         """Disconnect and close connections a bit more gracefully."""
@@ -200,7 +200,7 @@ class SocketIO(object):
     def send_heartbeat(self):
         return self.__send(2)
 
-    def send_event(self, name, args, **kwargs):
+    def send_event(self, name, *args, **kwargs):
         """Send an event message over the socket."""
 
         return self.__send(5, name=name, args=args, **kwargs)
