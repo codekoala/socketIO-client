@@ -119,9 +119,6 @@ class SocketIO(object):
             unicode(data_str).encode("utf-8")
         ]))
 
-        if msg_type != 2:
-            print msg
-
         return self.connection.send(msg)
 
     def create_dynamic_message_handlers(self):
