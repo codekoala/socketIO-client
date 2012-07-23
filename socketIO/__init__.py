@@ -1,4 +1,4 @@
-from anyjson import dumps
+from anyjson import dumps, loads
 from collections import defaultdict
 from functools import partial
 from threading import Thread, Event
@@ -9,30 +9,6 @@ import time
 
 __version__ = '0.1.4'
 
-
-class MessageHandler(Thread):
-
-    def __init__(self, socket, *args, **kwargs):
-        super(MessageHandler, self).__init__(*args, **kwargs)
-
-        self.socket = socket
-        self.listeners = defaultdict(set)
-        self.event = Event()
-
-    def cancel(self):
-        self.event.set()
-
-    def run(self):
-        while not self.event.is_set():
-            data = self.socket.recv()
-            bits = data.split(':', 3)
-            msg_type, msg_id, endpoint = bits[:3]
-            if int(msg_type) != 2:
-                print data
-            time.sleep(1)
-
-    def on(self, event, callback):
-        self.listeners[event].add(callback)
 
 class SocketIO(object):
 
@@ -100,6 +76,8 @@ class SocketIO(object):
             pass
 
     def on(self, event, callback):
+        """Pass the event callback thru to the thread"""
+
         self.listener.on(event, callback)
 
     def __send(self, msg_type, msg_id=None, endpoint=None, **kwargs):
@@ -231,3 +209,44 @@ class RhythmicThread(Thread):
         while not self.done.is_set():
             self.function(*self.args, **self.kw)
             self.done.wait(self.intervalInSeconds)
+
+
+class MessageHandler(Thread):
+
+    def __init__(self, socket, *args, **kwargs):
+        super(MessageHandler, self).__init__(*args, **kwargs)
+
+        self.socket = socket
+        self.listeners = defaultdict(set)
+        self.event = Event()
+
+    def cancel(self):
+        self.event.set()
+
+    def run(self):
+        """
+        Wait for data to be received on the socket and do something about it.
+
+        Currently, this is only really useful to handle event messages received
+        via the socket.
+
+        """
+
+        while not self.event.is_set():
+            data = self.socket.recv()
+            bits = data.split(':', 3)
+            msg_type, msg_id, endpoint = bits[:3]
+
+            # handle event messages
+            if int(msg_type) == 5:
+                data = loads(bits[3])
+                handlers = self.listeners.get(data['name'])
+                for handler in handlers:
+                    handler(*data['args'])
+
+            # wait a bit before asking for more data
+            time.sleep(0.1)
+
+    def on(self, event, callback):
+        self.listeners[event].add(callback)
+

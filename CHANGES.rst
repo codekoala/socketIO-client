@@ -1,3 +1,8 @@
+0.1.4
+-----
+
+- Events can be received and handled (in a separate thread)
+
 0.1.3
 -----
 
