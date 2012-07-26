@@ -9,6 +9,9 @@ import time
 
 __version__ = '0.1.4'
 
+PKT_START = '\x00'
+PKT_END = '\xff'
+
 
 class SocketIO(object):
 
@@ -119,7 +122,7 @@ class SocketIO(object):
             unicode(data_str).encode("utf-8")
         ]))
 
-        return self.connection.send(msg)
+        return self.connection.send(''.join([PKT_START, msg, PKT_END]))
 
     def create_dynamic_message_handlers(self):
         """
@@ -220,6 +223,32 @@ class MessageHandler(Thread):
     def cancel(self):
         self.event.set()
 
+    def consume_packet(self, buf):
+        while PKT_END in buf:
+            pkt, buf = buf.split(PKT_END, 1)
+            if pkt[0] != PKT_START:
+                pass
+
+            self.handle_packet(pkt[1:])
+
+        return buf
+
+    def handle_packet(self, packet):
+        bits = packet.split(':', 3)
+        msg_type, msg_id = bits[:2]
+
+        # handle event messages
+        try:
+            msg_type = int(msg_type)
+        except:
+            print 'Error!!', packet
+
+        if msg_type == 5:
+            data = loads(bits[3])
+            handlers = self.listeners.get(data['name'], [])
+            for handler in handlers:
+                handler(*data['args'])
+
     def run(self):
         """
         Wait for data to be received on the socket and do something about it.
@@ -230,16 +259,15 @@ class MessageHandler(Thread):
         """
 
         while not self.event.is_set():
-            data = self.socket.recv()
-            bits = data.split(':', 3)
-            msg_type, msg_id, endpoint = bits[:3]
+            buf = ''
 
-            # handle event messages
-            if int(msg_type) == 5:
-                data = loads(bits[3])
-                handlers = self.listeners.get(data['name'], [])
-                for handler in handlers:
-                    handler(*data['args'])
+            while True:
+                buf = self.consume_packet(buf)
+
+                new = self.socket.recv(1024)
+                if not new:
+                    return
+                buf += new
 
             # wait a bit before asking for more data
             time.sleep(0.1)
